@@ -57,8 +57,8 @@ void free_lexer(Lexer *lexer) {
     Token *t = (Token *)g_list_nth_data(lexer->tokens, i);
     if (t != NULL) {
       free(t->c);
+      free(t);
     }
   }
   g_list_free(lexer->tokens);
-  free(lexer->tokens);
 }

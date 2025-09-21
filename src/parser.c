@@ -42,6 +42,7 @@ void append_json_raw_values(JSON **json, char *c) {
   }
   case NUL: {
     (*json)->value = NULL;
+    break;
   }
   case BOOL: {
     bool *b = NULL;
