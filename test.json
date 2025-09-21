@@ -1,0 +1,16 @@
+{
+    "name": "TestConfig",
+    "version": 3,
+    "pi": 3.1415,
+    "enabled": true,
+    "owner": null,
+    "tags": ["alpha", "beta", "gamma"],
+    "nested": {
+      "count": 42,
+      "ratio": 0.75,
+      "active": false,
+      "empty": null,
+      "list": ["one", "two"]
+    }
+  }
+  
