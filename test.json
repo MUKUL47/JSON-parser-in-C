@@ -1,16 +1,43 @@
 {
-    "name": "TestConfig",
-    "version": 3,
-    "pi": 3.1415,
-    "enabled": true,
-    "owner": null,
-    "tags": ["alpha", "beta", "gamma"],
-    "nested": {
-      "count": 42,
-      "ratio": 0.75,
-      "active": false,
-      "empty": null,
-      "list": ["one", "two"]
+  "metadata": {
+    "version": "2.5.1-beta",
+    "created": "2025-09-22T14:30:00Z",
+    "author": "dev_user",
+    "tags": ["complex", "test", "json", "lexer", "parser"]
+  },
+  "settings": {
+    "features": {
+      "enable_logging": true,
+      "max_connections": 1000,
+      "timeout_ms": 5000,
+      "thresholds": [0.1, 0.25, 0.5, 0.75, 0.9],
+      "nested_levels": [
+        { "level": 1, "value": "a" },
+        { "level": 2, "value": "b" },
+        { "level": 3, "value": "c", "sublevels": [{ "sub": 1 }, { "sub": 2 }] }
+      ]
+    },
+    "paths": {
+      "home_dir": "C:\\\\Users\\\\dev_user",
+      "temp_dir": "D:\\\\Temp\\\\json_test",
+      "url_path": "https://example.com/api/v1/test"
     }
+  },
+  "data": [
+    { "id": 1, "name": "Item \\\"A\\\"", "active": true, "score": 9.5 },
+    { "id": 2, "name": "Item B", "active": false, "score": null },
+    { "id": 3, "name": "Item C", "active": true, "score": -2.71828e2 },
+    [],
+    [1, [2, [3, [4, [5, []]]]]]
+  ],
+  "unicode_test": {
+    "emoji": "\u1F6600\u1F6609",
+    "chinese": "\u4F660\u5977D",
+    "arabic": "\u06227\u06444\u06333\u06444\u06227\u06445"
+  },
+  "misc": {
+    "empty_object": {},
+    "empty_array": [],
+    "special_keys": { "": "empty_key", "!@#$%^&*()": "symbols" }
   }
-  
+}
