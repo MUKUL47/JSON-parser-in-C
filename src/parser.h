@@ -28,9 +28,13 @@ typedef struct{
     bool is_float;
     bool is_exponent;
     bool is_negative;
-    char *result;
     int counter;
 }NonStringGuard;
+
+typedef struct{
+    JSONType type;
+    char *result;
+}ValueResultType;
 
 Parser*  deserialize(FILE *f);
 void deserialize_entry(Parser *p);
@@ -39,11 +43,10 @@ void deserialize_object(Parser *p, void **lastNodeValue);
 bool is_that_token(int token, Parser *p);
 char *get_obj_array_string(Parser *p, int until_tokens[2]);
 JSONType identify_json_value_type(char *c);
-char *deserialize_json_values_inquote(Parser *p, int delimiter);
 JSON* alloc_json();
 JSON* json_get_value(Parser *p, char** s, int depth);
 void free_parser(Parser *p);
 void append_json_raw_values(JSON **json, char *c);
 void validate_token(Parser *p, u_short target);
 char* parse_string(Parser *p);
-char *parse_non_string(Parser *p);
+ValueResultType* parse_non_string(Parser *p);

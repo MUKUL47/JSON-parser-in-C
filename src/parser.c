@@ -14,13 +14,16 @@ bool is_that_token(int token, Parser *p) {
   return token == (u_short)*get_token_at(p->lexer, p->counter);
 }
 
-char *parse_non_string(Parser *p) {
+ValueResultType *parse_non_string(Parser *p) {
   NonStringGuard non_string_guard;
-  non_string_guard.result = NULL;
-  non_string_guard.result =
+  ValueResultType *resultType = NULL;
+  resultType = malloc(sizeof(ValueResultType));
+  resultType->result = NULL;
+  resultType->result =
       malloc(sizeof(char) * STRING_CAP); // TODO : update with realloc
-  assert(non_string_guard.result != NULL);
+  assert(resultType->result != NULL);
   bool is_started = true;
+  resultType->type = 0;
   while (1) {
     const char *current_token_data = get_token_at(p->lexer, p->counter);
     if (current_token_data == NULL) {
@@ -35,7 +38,7 @@ char *parse_non_string(Parser *p) {
         !non_string_guard.is_exponent &&
         is_digit(*get_token_at(p->lexer, p->counter - 1))) {
       // exponent
-      non_string_guard.result[non_string_guard.counter++] = current_token;
+      resultType->result[non_string_guard.counter++] = current_token;
       non_string_guard.is_exponent = true;
       int next_t = (u_short)*get_token_at(p->lexer, p->counter + 1);
       int next_t1 = (u_short)*get_token_at(p->lexer, p->counter + 2);
@@ -43,14 +46,14 @@ char *parse_non_string(Parser *p) {
       const bool is_first_digit1 = is_digit(next_t1);
       if (is_first_digit) {
         // 2e2
-        non_string_guard.result[non_string_guard.counter++] = next_t;
+        resultType->result[non_string_guard.counter++] = next_t;
         p->counter++;
         goto UPDATE;
       } else if (!is_first_digit && (next_t == LOWER_E || next_t == UPPER_E) &&
                  is_first_digit1) {
         // 2e+2
         // 2e-2
-        non_string_guard.result[non_string_guard.counter++] = next_t1;
+        resultType->result[non_string_guard.counter++] = next_t1;
         p->counter += 2;
         goto UPDATE;
       } else {
@@ -68,7 +71,7 @@ char *parse_non_string(Parser *p) {
     } else if (current_token == MINUS && !non_string_guard.is_negative &&
                is_started) {
       // started with minus
-      non_string_guard.result[non_string_guard.counter++] = current_token;
+      resultType->result[non_string_guard.counter++] = current_token;
       non_string_guard.is_negative = true;
       goto UPDATE;
     } else if (current_token == DOT && !is_started &&
@@ -76,38 +79,41 @@ char *parse_non_string(Parser *p) {
                !non_string_guard.is_float) {
       // float dot and is not first
       non_string_guard.is_float = true;
-      non_string_guard.result[non_string_guard.counter++] = current_token;
+      resultType->result[non_string_guard.counter++] = current_token;
       goto UPDATE;
     } else if (is_token_digit) {
-      non_string_guard.result[non_string_guard.counter++] = current_token;
+      resultType->result[non_string_guard.counter++] = current_token;
       goto UPDATE;
     } else if (current_token == LOWER_F || current_token == LOWER_T ||
                current_token == LOWER_N) {
       p->counter++;
-      non_string_guard.result[non_string_guard.counter++] = current_token;
+      resultType->result[non_string_guard.counter++] = current_token;
       if (current_token == LOWER_F) {
-        non_string_guard.result[non_string_guard.counter++] = LOWER_A;
+        resultType->result[non_string_guard.counter++] = LOWER_A;
         validate_token(p, LOWER_A);
-        non_string_guard.result[non_string_guard.counter++] = LOWER_L;
+        resultType->result[non_string_guard.counter++] = LOWER_L;
         validate_token(p, LOWER_L);
-        non_string_guard.result[non_string_guard.counter++] = LOWER_S;
+        resultType->result[non_string_guard.counter++] = LOWER_S;
         validate_token(p, LOWER_S);
-        non_string_guard.result[non_string_guard.counter++] = LOWER_E;
+        resultType->result[non_string_guard.counter++] = LOWER_E;
         validate_token(p, LOWER_E);
+        resultType->type = BOOL;
       } else if (current_token == LOWER_T) {
-        non_string_guard.result[non_string_guard.counter++] = LOWER_R;
+        resultType->result[non_string_guard.counter++] = LOWER_R;
         validate_token(p, LOWER_R);
-        non_string_guard.result[non_string_guard.counter++] = LOWER_U;
+        resultType->result[non_string_guard.counter++] = LOWER_U;
         validate_token(p, LOWER_U);
-        non_string_guard.result[non_string_guard.counter++] = LOWER_E;
+        resultType->result[non_string_guard.counter++] = LOWER_E;
         validate_token(p, LOWER_E);
+        resultType->type = BOOL;
       } else {
-        non_string_guard.result[non_string_guard.counter++] = LOWER_U;
+        resultType->result[non_string_guard.counter++] = LOWER_U;
         validate_token(p, LOWER_U);
-        non_string_guard.result[non_string_guard.counter++] = LOWER_L;
+        resultType->result[non_string_guard.counter++] = LOWER_L;
         validate_token(p, LOWER_L);
-        non_string_guard.result[non_string_guard.counter++] = LOWER_L;
+        resultType->result[non_string_guard.counter++] = LOWER_L;
         validate_token(p, LOWER_L);
+        resultType->type = NUL;
       }
     UPDATE:
       p->counter++;
@@ -116,8 +122,11 @@ char *parse_non_string(Parser *p) {
       assert(false && "Failed to parse number, null, false or true");
     }
   }
-  non_string_guard.result[non_string_guard.counter] = '\0';
-  return non_string_guard.result;
+  if (resultType->type == 0) {
+    resultType->type = NUMBER;
+  }
+  resultType->result[non_string_guard.counter] = '\0';
+  return resultType;
 }
 
 char *parse_string(Parser *p) {
@@ -187,6 +196,20 @@ char *parse_string(Parser *p) {
   return result;
 }
 
+ValueResultType *parse_object_array_value(Parser *p) {
+  if (is_that_token(DOUBLE_QUOTE, p)) {
+    validate_token(p, DOUBLE_QUOTE);
+    ValueResultType *valueResultType = NULL;
+    valueResultType = malloc(sizeof(ValueResultType));
+    assert(valueResultType != NULL);
+    valueResultType->result = parse_string(p);
+    validate_token(p, DOUBLE_QUOTE);
+    return valueResultType;
+  } else {
+    return parse_non_string(p);
+  }
+}
+
 JSON *alloc_json() {
   JSON *json = NULL;
   json = malloc(sizeof(JSON));
@@ -231,60 +254,6 @@ void append_json_raw_values(JSON **json, char *c) {
   }
 }
 
-JSONType identify_json_value_type(char *c) {
-  if (!strcmp(c, "false") || !strcmp(c, "true")) {
-    return BOOL;
-  }
-  if (!strcmp(c, "null")) {
-    return NUL;
-  }
-
-  int current = 0;
-  int counter = 0;
-  u_int8_t has_astrisk_once = 0;
-  bool starts_with_hyphen = 0;
-  while ((current = (int)c[counter++]) != (char)'\0') {
-    if (counter == 1 && current == MINUS) {
-      starts_with_hyphen = true;
-      continue;
-    }
-    if (current == DOT) {
-      has_astrisk_once++;
-      continue;
-    }
-    if (current < DIGIT_0 || current > DIGIT_9 && current != DOT) {
-      return STRING;
-    }
-  }
-  if (has_astrisk_once == 1 && starts_with_hyphen) {
-    return FLOAT;
-  } else if (has_astrisk_once > 1) {
-    return STRING;
-  }
-  return NUMBER;
-}
-
-char *get_obj_array_string(Parser *p, int until_token[2]) {
-  int current_array_char = -1;
-  char *c = NULL;
-  c = malloc(sizeof(char) * STRING_CAP);
-  assert(c != NULL);
-  int str_counter = 0;
-  for (;;) {
-    assert(str_counter < STRING_CAP - 1 && "Failed to allocate string");
-    current_array_char = *get_token_at(p->lexer, p->counter);
-    c[str_counter++] = (char)current_array_char;
-    if (current_array_char != until_token[0] &&
-        current_array_char != until_token[1]) {
-      p->counter++;
-    } else {
-      break;
-    }
-  }
-  c[str_counter - 1] = '\0';
-  return c;
-}
-
 void validate_token(Parser *p, u_short target) {
   char *c = get_token_at(p->lexer, p->counter);
   if (target != (u_short)*c) {
@@ -308,21 +277,6 @@ void deserialize_entry(Parser *p) {
   exit(3);
 }
 
-char *deserialize_json_values_inquote(Parser *p, int delimiter) {
-  bool is_double_quote = is_that_token(DOUBLE_QUOTE, p);
-  if (is_double_quote) {
-    validate_token(p, DOUBLE_QUOTE);
-  }
-  char *c = get_obj_array_string(
-      p, is_double_quote
-             // if double quote its a string find until another double quote
-             ? (int[2]){DOUBLE_QUOTE, DOUBLE_QUOTE}
-             // else null bool number find until next or last array item
-             : (int[2]){COMMA, delimiter});
-
-  return c;
-}
-
 void deserialize_array(Parser *p, void **lastNodeValue) {
   validate_token(p, SQUARE_OPEN);
   GList *deserialize_array_glist = NULL;
@@ -342,14 +296,10 @@ void deserialize_array(Parser *p, void **lastNodeValue) {
         deserialize_object(p, &json->value);
         deserialize_array_glist = g_list_append(deserialize_array_glist, json);
       } else {
-        const bool is_double_quote = is_that_token(DOUBLE_QUOTE, p);
-        char *c = deserialize_json_values_inquote(p, SQUARE_CLOSE);
-        json->type = identify_json_value_type(c);
-        append_json_raw_values(&json, c);
+        ValueResultType *valueResult = parse_object_array_value(p);
+        json->type = valueResult->type;
+        append_json_raw_values(&json, valueResult->result);
         deserialize_array_glist = g_list_append(deserialize_array_glist, json);
-        if (is_double_quote) {
-          validate_token(p, DOUBLE_QUOTE);
-        }
       }
       if (!is_that_token(COMMA, p)) {
         break;
@@ -370,7 +320,7 @@ void deserialize_object(Parser *p, void **lastNodeValue) {
     for (;;) {                         // iterating array
       validate_token(p, DOUBLE_QUOTE); // "
       char *object_key =               // STRING
-          get_obj_array_string(p, (int[2]){DOUBLE_QUOTE, DOUBLE_QUOTE});
+          parse_string(p);
       validate_token(p, DOUBLE_QUOTE); //"
       validate_token(p, COLON);        //:
       JSON *json = alloc_json();
@@ -383,14 +333,10 @@ void deserialize_object(Parser *p, void **lastNodeValue) {
         deserialize_object(p, &json->value);
         g_hash_table_insert(deserialize_object_ghashtable, object_key, json);
       } else {
-        const bool is_double_quote = is_that_token(DOUBLE_QUOTE, p);
-        char *c = deserialize_json_values_inquote(p, CURLY_CLOSE);
-        json->type = identify_json_value_type(c);
-        append_json_raw_values(&json, c);
+        ValueResultType *valueResult = parse_object_array_value(p);
+        json->type = valueResult->type;
+        append_json_raw_values(&json, valueResult->result);
         g_hash_table_insert(deserialize_object_ghashtable, object_key, json);
-        if (is_double_quote) {
-          validate_token(p, DOUBLE_QUOTE);
-        }
       }
       if (!is_that_token(COMMA, p)) {
         break;
