@@ -150,7 +150,7 @@ char *get_token_at(Lexer *l, int index) {
   if (t == NULL) {
     return NULL;
   }
-  return t->c;
+  return strndup(t->c, 1);
 }
 
 void free_lexer(Lexer *lexer) {

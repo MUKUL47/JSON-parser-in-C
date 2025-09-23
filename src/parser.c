@@ -186,10 +186,12 @@ char *parse_string(Parser *p) {
         assert(false && "Expected escape characters or HEX unicode");
       }
     } else {
-      result[c++] = current_token;
-      p->counter++;
       if (current_token == DOUBLE_QUOTE)
         break;
+      else {
+        p->counter++;
+        result[c++] = (char)current_token;
+      }
     }
   }
   result[c++] = '\0';

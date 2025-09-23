@@ -10,8 +10,8 @@ int main() {
   Parser *p = deserialize(f);
   char *c1[] = {"v"};
   JSON *j1 = (JSON *)json_get_value(p, c1, 1);
-  printf("%d\n", j1->type);
-  if (j1 != NULL && j1->type == FLOAT) {
+  printf("%b\n", j1);
+  if (j1 != NULL && j1->type == NUMBER) {
     printf("%f\n", *(float *)j1->value);
   }
 
