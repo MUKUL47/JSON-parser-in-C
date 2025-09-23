@@ -8,9 +8,89 @@
 #include <sys/types.h>
 #include <time.h>
 
+bool is_digit(int t) { return t >= DIGIT_0 && t <= DIGIT_9; }
+
 bool is_that_token(int token, Parser *p) {
   return token == (u_short)*get_token_at(p->lexer, p->counter);
 }
+
+void parse_non_string(Parser *p, NonStringGuard non_string_guard) {
+  bool is_started = p->counter == non_string_guard.started_at_counter;
+  int current_token = (u_short)*get_token_at(p->lexer, p->counter);
+  const bool is_closing = current_token == CURLY_CLOSE ||
+                          current_token == SQUARE_CLOSE ||
+                          current_token == COMMA;
+  const bool is_token_digit = is_digit(current_token);
+  if ((current_token == UPPER_E || current_token == LOWER_E) && !is_started &&
+      !non_string_guard.is_exponent &&
+      is_digit(*get_token_at(p->lexer, p->counter - 1))) {
+    // exponent
+    non_string_guard.is_exponent = true;
+    int next_t = (u_short)*get_token_at(p->lexer, p->counter + 1);
+    int next_t1 = (u_short)*get_token_at(p->lexer, p->counter + 2);
+    const bool is_first_digit = is_digit(next_t);
+    const bool is_first_digit1 = is_digit(next_t1);
+    if (is_first_digit) {
+      // 2e2
+      p->counter++;
+      goto UPDATE;
+    } else if (!is_first_digit && (next_t == LOWER_E || next_t == UPPER_E) &&
+               is_first_digit1) {
+      // 2e+2
+      // 2e-2
+      p->counter += 2;
+      goto UPDATE;
+    } else {
+      assert(false &&
+             "Invalid exponent closing token found, must be 2e+2 2e-2 2e2");
+    }
+  } else if (current_token == DIGIT_0 && is_started ||
+             (is_closing && !is_started)) {
+    if (current_token == DIGIT_0 &&
+        *get_token_at(p->lexer, p->counter + 1) != is_closing) {
+      assert(false && "Number cannot start with 0");
+    }
+    // started with 0 close the parsing OR is closing tokens BUT not starting
+    return; // return to object, array values
+  } else if (current_token == MINUS && !non_string_guard.is_negative &&
+             is_started) {
+    // started with minus
+    non_string_guard.is_negative = true;
+    goto UPDATE;
+  } else if (current_token == DOT && !is_started &&
+             is_digit((u_short)*get_token_at(p->lexer, p->counter - 1)) &&
+             !non_string_guard.is_float) {
+    // float dot and is not first
+    non_string_guard.is_float = true;
+    goto UPDATE;
+  } else if (is_token_digit) {
+    goto UPDATE;
+  } else if (current_token == LOWER_F || current_token == LOWER_T ||
+             current_token == LOWER_N) {
+    p->counter++;
+    if (current_token == LOWER_F) {
+      validate_token(p, LOWER_A);
+      validate_token(p, LOWER_L);
+      validate_token(p, LOWER_S);
+      validate_token(p, LOWER_E);
+    } else if (current_token == LOWER_T) {
+      validate_token(p, LOWER_R);
+      validate_token(p, LOWER_U);
+      validate_token(p, LOWER_E);
+    } else {
+      validate_token(p, LOWER_U);
+      validate_token(p, LOWER_L);
+      validate_token(p, LOWER_L);
+    }
+  UPDATE:
+    p->counter++;
+    parse_non_string(p, non_string_guard);
+  } else {
+    assert(false && "Failed to parse number, null, false or true");
+  }
+}
+
+void parse_string(Parser *p) {}
 
 JSON *alloc_json() {
   JSON *json = NULL;
@@ -67,7 +147,12 @@ JSONType identify_json_value_type(char *c) {
   int current = 0;
   int counter = 0;
   u_int8_t has_astrisk_once = 0;
+  bool starts_with_hyphen = 0;
   while ((current = (int)c[counter++]) != (char)'\0') {
+    if (counter == 1 && current == MINUS) {
+      starts_with_hyphen = true;
+      continue;
+    }
     if (current == DOT) {
       has_astrisk_once++;
       continue;
@@ -76,7 +161,7 @@ JSONType identify_json_value_type(char *c) {
       return STRING;
     }
   }
-  if (has_astrisk_once == 1) {
+  if (has_astrisk_once == 1 && starts_with_hyphen) {
     return FLOAT;
   } else if (has_astrisk_once > 1) {
     return STRING;

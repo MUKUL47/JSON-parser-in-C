@@ -8,14 +8,12 @@
 int main() {
   FILE *f = fopen("../test.json", "r");
   Parser *p = deserialize(f);
-  char *c1[] = {"top_level_values", "number"};
-  JSON *j1 = (JSON *)json_get_value(p, c1, 2);
+  char *c1[] = {"v"};
+  JSON *j1 = (JSON *)json_get_value(p, c1, 1);
   printf("%d\n", j1->type);
-  // if (j1 != NULL && j1->type == STRING) {
-  //   printf("%s\n", (char *)j1->value);
-  // }
+  if (j1 != NULL && j1->type == FLOAT) {
+    printf("%f\n", *(float *)j1->value);
+  }
 
-  free_parser(p);
-  fclose(f);
   return 0;
 }

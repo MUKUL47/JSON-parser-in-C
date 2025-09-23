@@ -24,6 +24,13 @@ typedef struct{
     Lexer *lexer;
 }Parser;
 
+typedef struct{
+    bool is_float;
+    bool is_exponent;
+    int started_at_counter;
+    bool is_negative;
+}NonStringGuard;
+
 Parser*  deserialize(FILE *f);
 void deserialize_entry(Parser *p);
 void deserialize_array(Parser *p, void **lastNodeValue);
@@ -36,3 +43,4 @@ JSON* alloc_json();
 JSON* json_get_value(Parser *p, char** s, int depth);
 void free_parser(Parser *p);
 void append_json_raw_values(JSON **json, char *c);
+void validate_token(Parser *p, u_short target);
