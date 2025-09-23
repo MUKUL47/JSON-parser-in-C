@@ -27,8 +27,9 @@ typedef struct{
 typedef struct{
     bool is_float;
     bool is_exponent;
-    int started_at_counter;
     bool is_negative;
+    char *result;
+    int counter;
 }NonStringGuard;
 
 Parser*  deserialize(FILE *f);
@@ -44,3 +45,5 @@ JSON* json_get_value(Parser *p, char** s, int depth);
 void free_parser(Parser *p);
 void append_json_raw_values(JSON **json, char *c);
 void validate_token(Parser *p, u_short target);
+char* parse_string(Parser *p);
+char *parse_non_string(Parser *p);
