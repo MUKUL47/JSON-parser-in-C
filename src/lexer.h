@@ -112,3 +112,4 @@ void tokenizer_string(Lexer *l);
 void tokenizer_number(Lexer *l);
 void tokenizer_string(Lexer *l);
 void tokenizer_consume(Lexer *l, char token);
+int get_token_at_cast(Lexer *l, int index);

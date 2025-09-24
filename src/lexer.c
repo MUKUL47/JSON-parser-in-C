@@ -144,10 +144,18 @@ char *get_raw_token_at(Lexer *l, int index) {
   return t->c;
 }
 
+int get_token_at_cast(Lexer *l, int index) {
+  char *c = get_token_at(l, index);
+  if (c == NULL) {
+    return -1;
+  }
+  return (int)*c;
+}
+
 char *get_token_at(Lexer *l, int index) {
   assert(l != NULL && l->tokens != NULL);
   Token *t = (Token *)g_list_nth_data(l->tokens, index);
-  if (t == NULL) {
+  if (t == NULL || t->c == NULL) {
     return NULL;
   }
   return strndup(t->c, 1);

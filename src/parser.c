@@ -11,7 +11,7 @@
 bool is_digit(int t) { return t >= DIGIT_0 && t <= DIGIT_9; }
 
 bool is_that_token(int token, Parser *p) {
-  return token == (u_short)*get_token_at(p->lexer, p->counter);
+  return token == get_token_at_cast(p->lexer, p->counter);
 }
 
 ValueResultType *parse_non_string(Parser *p) {
@@ -19,113 +19,168 @@ ValueResultType *parse_non_string(Parser *p) {
   ValueResultType *resultType = NULL;
   resultType = malloc(sizeof(ValueResultType));
   resultType->result = NULL;
+  resultType->type = NUMBER;
+  int counter = 0;
+  bool finished = false;
   resultType->result =
       malloc(sizeof(char) * STRING_CAP); // TODO : update with realloc
   assert(resultType->result != NULL);
   bool is_started = true;
   resultType->type = 0;
   while (1) {
+
     const char *current_token_data = get_token_at(p->lexer, p->counter);
     if (current_token_data == NULL) {
       assert(false && "Incorrect number termination");
     }
-    int current_token = (u_short)*get_token_at(p->lexer, p->counter);
+    int current_token = get_token_at_cast(p->lexer, p->counter);
     const bool is_closing = current_token == CURLY_CLOSE ||
                             current_token == SQUARE_CLOSE ||
                             current_token == COMMA;
     const bool is_token_digit = is_digit(current_token);
-    if ((current_token == UPPER_E || current_token == LOWER_E) && !is_started &&
-        !non_string_guard.is_exponent &&
-        is_digit(*get_token_at(p->lexer, p->counter - 1))) {
-      // exponent
-      resultType->result[non_string_guard.counter++] = current_token;
-      non_string_guard.is_exponent = true;
-      int next_t = (u_short)*get_token_at(p->lexer, p->counter + 1);
-      int next_t1 = (u_short)*get_token_at(p->lexer, p->counter + 2);
-      const bool is_first_digit = is_digit(next_t);
-      const bool is_first_digit1 = is_digit(next_t1);
-      if (is_first_digit) {
-        // 2e2
-        resultType->result[non_string_guard.counter++] = next_t;
-        p->counter++;
-        goto UPDATE;
-      } else if (!is_first_digit && (next_t == LOWER_E || next_t == UPPER_E) &&
-                 is_first_digit1) {
-        // 2e+2
-        // 2e-2
-        resultType->result[non_string_guard.counter++] = next_t1;
-        p->counter += 2;
-        goto UPDATE;
-      } else {
-        assert(false &&
-               "Invalid exponent closing token found, must be 2e+2 2e-2 2e2");
+
+    switch (current_token) {
+
+    case CURLY_CLOSE:
+    case SQUARE_CLOSE:
+    case COMMA: {
+      if (!is_started) {
+        finished = true;
+        break;
       }
-    } else if (current_token == DIGIT_0 && is_started ||
-               (is_closing && !is_started)) {
-      if (current_token == DIGIT_0 &&
-          *get_token_at(p->lexer, p->counter + 1) != is_closing) {
-        assert(false && "Number cannot start with 0");
+    }
+
+    case DIGIT_0: {
+      if (is_started) {
+        int next = *get_token_at(p->lexer, p->counter + 1);
+        if (next != CURLY_CLOSE || next != SQUARE_CLOSE || next != COMMA) {
+          assert(false && "Number cannot start with 0");
+        }
+        resultType->result[counter++] = current_token;
+        goto UPDATE;
       }
-      // started with 0 close the parsing OR is closing tokens BUT not starting
-      break; // return to object, array values
-    } else if (current_token == MINUS && !non_string_guard.is_negative &&
-               is_started) {
-      // started with minus
-      resultType->result[non_string_guard.counter++] = current_token;
-      non_string_guard.is_negative = true;
+    }
+    case DIGIT_1:
+    case DIGIT_2:
+    case DIGIT_3:
+    case DIGIT_4:
+    case DIGIT_5:
+    case DIGIT_6:
+    case DIGIT_7:
+    case DIGIT_8:
+    case DIGIT_9: {
+      resultType->result[counter++] = (char)current_token;
       goto UPDATE;
-    } else if (current_token == DOT && !is_started &&
-               is_digit((u_short)*get_token_at(p->lexer, p->counter - 1)) &&
-               !non_string_guard.is_float) {
-      // float dot and is not first
-      non_string_guard.is_float = true;
-      resultType->result[non_string_guard.counter++] = current_token;
-      goto UPDATE;
-    } else if (is_token_digit) {
-      resultType->result[non_string_guard.counter++] = current_token;
-      goto UPDATE;
-    } else if (current_token == LOWER_F || current_token == LOWER_T ||
-               current_token == LOWER_N) {
+    }
+
+    case LOWER_E:
+    case UPPER_E: {
+      if (!is_started && !non_string_guard.is_exponent &&
+          is_digit(*get_token_at(p->lexer, p->counter - 1))) {
+        resultType->result[counter++] = current_token;
+        non_string_guard.is_exponent = true;
+        int next_t = get_token_at_cast(p->lexer, p->counter + 1);
+        int next_t1 = get_token_at_cast(p->lexer, p->counter + 2);
+        const bool is_first_digit = is_digit(next_t);
+        const bool is_first_digit1 = is_digit(next_t1);
+        if (is_first_digit) {
+          // 2e2
+          resultType->result[counter++] = next_t;
+          p->counter++;
+          goto UPDATE;
+        } else if (!is_first_digit && (next_t == PLUS || next_t == MINUS) &&
+                   is_first_digit1) {
+          // 2e+2
+          // 2e-2
+          resultType->result[counter++] = next_t;
+          resultType->result[counter++] = next_t1;
+          p->counter += 2;
+          goto UPDATE;
+        } else {
+          assert(false &&
+                 "Invalid exponent closing token found, must be 2e+2 2e-2 2e2");
+        }
+      }
+    }
+
+    case MINUS: {
+      if (!non_string_guard.is_negative && is_started) {
+        // started with minus
+        resultType->result[counter++] = current_token;
+        non_string_guard.is_negative = true;
+        goto UPDATE;
+      }
+    }
+
+    case LOWER_F:
+    case LOWER_N:
+    case LOWER_T: {
       p->counter++;
-      resultType->result[non_string_guard.counter++] = current_token;
+      resultType->result[counter++] = current_token;
       if (current_token == LOWER_F) {
-        resultType->result[non_string_guard.counter++] = LOWER_A;
+        resultType->result[counter++] = LOWER_A;
         validate_token(p, LOWER_A);
-        resultType->result[non_string_guard.counter++] = LOWER_L;
+        resultType->result[counter++] = LOWER_L;
         validate_token(p, LOWER_L);
-        resultType->result[non_string_guard.counter++] = LOWER_S;
+        resultType->result[counter++] = LOWER_S;
         validate_token(p, LOWER_S);
-        resultType->result[non_string_guard.counter++] = LOWER_E;
+        resultType->result[counter++] = LOWER_E;
         validate_token(p, LOWER_E);
         resultType->type = BOOL;
+        finished = true;
+        resultType->type = BOOL;
+        break;
       } else if (current_token == LOWER_T) {
-        resultType->result[non_string_guard.counter++] = LOWER_R;
+        resultType->result[counter++] = LOWER_R;
         validate_token(p, LOWER_R);
-        resultType->result[non_string_guard.counter++] = LOWER_U;
+        resultType->result[counter++] = LOWER_U;
         validate_token(p, LOWER_U);
-        resultType->result[non_string_guard.counter++] = LOWER_E;
+        resultType->result[counter++] = LOWER_E;
         validate_token(p, LOWER_E);
         resultType->type = BOOL;
+        finished = true;
+        resultType->type = BOOL;
+        break;
       } else {
-        resultType->result[non_string_guard.counter++] = LOWER_U;
+        resultType->result[counter++] = LOWER_U;
         validate_token(p, LOWER_U);
-        resultType->result[non_string_guard.counter++] = LOWER_L;
+        resultType->result[counter++] = LOWER_L;
         validate_token(p, LOWER_L);
-        resultType->result[non_string_guard.counter++] = LOWER_L;
+        resultType->result[counter++] = LOWER_L;
         validate_token(p, LOWER_L);
         resultType->type = NUL;
+        finished = true;
+        resultType->type = NUL;
+        break;
       }
-    UPDATE:
-      p->counter++;
-      is_started = false;
-    } else {
+    }
+
+    case DOT: {
+      if (!is_started &&
+          is_digit(get_token_at_cast(p->lexer, p->counter - 1)) &&
+          !non_string_guard.is_float) {
+        non_string_guard.is_float = true;
+        resultType->result[counter++] = current_token;
+        resultType->type = FLOAT;
+        goto UPDATE;
+      }
+    }
+
+    default:
       assert(false && "Failed to parse number, null, false or true");
     }
+
+    if (finished) {
+      break;
+    }
+  UPDATE:
+    p->counter++;
+    is_started = false;
   }
   if (resultType->type == 0) {
     resultType->type = NUMBER;
   }
-  resultType->result[non_string_guard.counter] = '\0';
+  resultType->result[counter] = '\0';
   return resultType;
 }
 
@@ -133,7 +188,7 @@ char *parse_string(Parser *p) {
   char *result = NULL;
   result = malloc(sizeof(char) * STRING_CAP); // TODO: update with realloc
   assert(result != NULL);
-  int c = 0;
+  int counter = 0;
   while (1) {
     const char *current_token_data = get_token_at(p->lexer, p->counter);
     if (current_token_data == NULL) {
@@ -142,9 +197,9 @@ char *parse_string(Parser *p) {
     const int current_token = (int)*current_token_data;
     char c = (char)current_token;
     if (current_token == SLASH_BACK) { // check escapse chars
-      result[c++] = current_token;
       char is_escape = *get_token_at(p->lexer, p->counter++);
       const int is_escape_char = (int)is_escape;
+      result[counter++] = (char)is_escape_char;
       if (is_escape_char == DOUBLE_QUOTE || is_escape_char == SLASH_BACK ||
           is_escape_char == SLASH_FORWARD || is_escape_char == LOWER_B ||
           is_escape_char == LOWER_F || is_escape_char == LOWER_N ||
@@ -177,10 +232,10 @@ char *parse_string(Parser *p) {
                   unicode_4 >= LOWER_A && unicode_4 <= LOWER_Z))) {
           assert(false && "incorrect HEX code found");
         }
-        result[c++] = unicode_1;
-        result[c++] = unicode_2;
-        result[c++] = unicode_3;
-        result[c++] = unicode_4;
+        result[counter++] = unicode_1;
+        result[counter++] = unicode_2;
+        result[counter++] = unicode_3;
+        result[counter++] = unicode_4;
         p->counter += 3;
       } else {
         assert(false && "Expected escape characters or HEX unicode");
@@ -190,11 +245,11 @@ char *parse_string(Parser *p) {
         break;
       else {
         p->counter++;
-        result[c++] = (char)current_token;
+        result[counter++] = (char)current_token;
       }
     }
   }
-  result[c++] = '\0';
+  result[counter++] = '\0';
   return result;
 }
 
@@ -205,6 +260,7 @@ ValueResultType *parse_object_array_value(Parser *p) {
     valueResultType = malloc(sizeof(ValueResultType));
     assert(valueResultType != NULL);
     valueResultType->result = parse_string(p);
+    valueResultType->type = STRING;
     validate_token(p, DOUBLE_QUOTE);
     return valueResultType;
   } else {
@@ -265,7 +321,7 @@ void validate_token(Parser *p, u_short target) {
   p->counter++;
 }
 void deserialize_entry(Parser *p) {
-  u_short current_token = (u_short)*get_token_at(p->lexer, 0);
+  u_short current_token = get_token_at_cast(p->lexer, 0);
   if (current_token == SQUARE_OPEN) {
     p->json->type = ARRAY;
     deserialize_array(p, &p->json->value);
@@ -338,6 +394,7 @@ void deserialize_object(Parser *p, void **lastNodeValue) {
         ValueResultType *valueResult = parse_object_array_value(p);
         json->type = valueResult->type;
         append_json_raw_values(&json, valueResult->result);
+        printf("%s\n", valueResult->result);
         g_hash_table_insert(deserialize_object_ghashtable, object_key, json);
       }
       if (!is_that_token(COMMA, p)) {

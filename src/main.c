@@ -10,9 +10,9 @@ int main() {
   Parser *p = deserialize(f);
   char *c1[] = {"v"};
   JSON *j1 = (JSON *)json_get_value(p, c1, 1);
-  printf("%b\n", j1);
+  printf("%d\n", j1->type);
   if (j1 != NULL && j1->type == NUMBER) {
-    printf("%f\n", *(float *)j1->value);
+    printf("%d\n", *(int *)j1->value);
   }
 
   return 0;
