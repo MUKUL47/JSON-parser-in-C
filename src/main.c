@@ -6,14 +6,7 @@
 #include <string.h>
 
 int main() {
-  FILE *f = fopen("../test.json", "r");
+  FILE *f = fopen("../test.sql", "r");
+  assert(f != NULL);
   Parser *p = deserialize(f);
-  char *c1[] = {"v"};
-  JSON *j1 = (JSON *)json_get_value(p, c1, 1);
-  printf("%d\n", j1->type);
-  if (j1 != NULL && j1->type == NUMBER) {
-    printf("%d\n", *(int *)j1->value);
-  }
-
-  return 0;
 }

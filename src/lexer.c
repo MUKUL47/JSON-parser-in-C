@@ -1,46 +1,49 @@
 #include "lexer.h"
 #include "glib.h"
+#include "glibconfig.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
 #include <time.h>
 
 Lexer *new_lexer() {
   Lexer *l = NULL;
   l = malloc(sizeof(Lexer));
   l->counter = 0;
-  l->tokens = NULL;
-  l->raw_tokens = NULL;
+  l->raw_tokens = g_array_new(FALSE, FALSE, sizeof(Token *));
+  assert(l->raw_tokens != NULL);
+  l->tokens = g_array_new(FALSE, FALSE, sizeof(Token *));
   return l;
 }
 
-Token *new_token(char c) {
+Token *new_token(char *c) {
   Token *t = NULL;
   t = malloc(sizeof(Token));
-  t->c = strdup(&c);
+  t->c = strdup(c);
   return t;
 }
 
 void raw_tokenizer(FILE *f, Lexer *lexer) {
   assert(f != NULL && lexer != NULL);
-  lexer->raw_tokens = NULL;
   int current_char = -1;
   while ((current_char = fgetc(f)) != EOF) {
     char c = (char)current_char;
-
-    lexer->raw_tokens = g_list_append(lexer->raw_tokens, new_token(c));
+    Token *t = new_token(&c);
+    g_array_append_val(lexer->raw_tokens, t);
   }
 }
 
 void tokenizer_string(Lexer *l) {
-  char *cc = get_raw_token_at(l, l->counter);
-  if (cc == NULL) {
+  char *current_token_at = get_raw_token_at(l, l->counter);
+  if (current_token_at == NULL) {
     assert(false && "Failed to terminate the string");
   }
-  const int current_token = (int)*cc;
+  const int current_token = (int)*current_token_at;
   char c = (char)current_token;
   if (current_token == SLASH_BACK) { // check escapse chars
-    tokenizer_consume(l, c);
+    tokenizer_consume(l, &c);
     l->counter++;
     char is_escape = (char)*get_raw_token_at(l, l->counter);
     const int is_escape_char = (int)is_escape;
@@ -49,14 +52,14 @@ void tokenizer_string(Lexer *l) {
         is_escape_char == LOWER_F || is_escape_char == LOWER_N ||
         is_escape_char == LOWER_R || is_escape_char == LOWER_T) {
       l->counter++;
-      tokenizer_consume(l, is_escape);
+      tokenizer_consume(l, &is_escape);
       tokenizer_string(l);
       return;
     } else if (is_escape_char == LOWER_U) { // check HEX
-      char unicode_1 = *get_raw_token_at(l, l->counter);
-      char unicode_2 = *get_raw_token_at(l, l->counter + 1);
-      char unicode_3 = *get_raw_token_at(l, l->counter + 2);
-      char unicode_4 = *get_raw_token_at(l, l->counter + 3);
+      char *unicode_1 = get_raw_token_at(l, l->counter);
+      char *unicode_2 = get_raw_token_at(l, l->counter + 1);
+      char *unicode_3 = get_raw_token_at(l, l->counter + 2);
+      char *unicode_4 = get_raw_token_at(l, l->counter + 3);
       if (!((
 
                 unicode_1 >= DIGIT_0 && unicode_1 <= DIGIT_9 ||
@@ -99,45 +102,86 @@ void tokenizer_string(Lexer *l) {
   }
 }
 
+void consume_last_valid_token(Lexer *lexer, char **last_char,
+                              int *last_char_counter) {
+  if (*last_char != NULL) {
+    (*last_char)[*last_char_counter] = '\0';
+    *last_char_counter = 0;
+    tokenizer_consume(lexer, *last_char); // consume all valid json tokens
+    free(*last_char);
+    *last_char = NULL;
+  }
+}
+
 void tokenizer_start(Lexer *lexer) {
-  char *cc = get_raw_token_at(lexer, lexer->counter);
-  if (cc == NULL) {
-    return; // finished tokenizing
+  int last_char_counter = 0;
+  char *last_char = NULL;
+  const u_short MOCK_SIZE = 3;
+  while (true) {
+    char *current_token_at = get_raw_token_at(lexer, lexer->counter);
+    if (current_token_at == NULL) {
+      return; // finished tokenizing
+    }
+    char c = *current_token_at;
+    const int current_token = (int)c;
+    if (current_token == COMMA || current_token == SEMI_COLON ||
+        current_token == BRACKET_OPEN || current_token == BRACKET_CLOSE ||
+        current_token == SINGLE_QUOTE || current_token == EQUAL_SIGN ||
+        current_token == GREATOR_THAN_SIGN || current_token == LESS_THAN_SIGN ||
+        current_token == ASTERISK || current_token == PLUS ||
+        current_token == MINUS) {
+      consume_last_valid_token(lexer, &last_char, &last_char_counter);
+      tokenizer_consume(lexer, &c);
+    } else if (!(current_token == SPACE || current_token == CARRIAGE ||
+                 current_token == TAB || current_token == NEWLINE ||
+                 current_token == DOUBLE_QUOTE)) {
+      if (last_char == NULL) {
+        last_char = malloc(sizeof(char) * MOCK_SIZE);
+        assert(last_char != NULL);
+      } else {
+        const int current_size = last_char_counter + 1;
+        if (last_char_counter > 0 && current_size % MOCK_SIZE == 0) {
+          last_char =
+              realloc(last_char, (current_size + MOCK_SIZE)); // 3+3 6+3 9+3..
+          assert(last_char != NULL);
+        }
+      }
+      last_char[last_char_counter++] = current_token;
+    } else if (last_char != NULL) {
+      consume_last_valid_token(lexer, &last_char, &last_char_counter);
+    }
+    lexer->counter++;
+    // get the lastchar append EOL and consume the token
   }
-  char c = *cc;
-  const int current_token = (int)c;
-  if (current_token == DOUBLE_QUOTE) {
-    tokenizer_consume(lexer, c);
-    lexer->counter++;
-    tokenizer_string(lexer);
-    tokenizer_start(lexer);
-  } else if (current_token == CURLY_OPEN || current_token == CURLY_CLOSE ||
-             current_token == SQUARE_OPEN || current_token == SQUARE_CLOSE ||
-             current_token == COMMA || current_token == SQUARE_OPEN ||
-             current_token == COLON ||
-             (current_token >= UPPER_A && current_token <= UPPER_Z) ||
-             (current_token >= LOWER_A && current_token <= LOWER_Z) ||
-             (current_token >= DIGIT_0 && current_token <= DIGIT_9) ||
-             current_token == DOT || current_token == MINUS ||
-             current_token == PLUS) {
-    tokenizer_consume(lexer, c); // consume all valid json tokens
-    lexer->counter++;
-    tokenizer_start(lexer);
-  } else {
-    lexer->counter++;
-    tokenizer_start(lexer);
-  }
+  consume_last_valid_token(lexer, &last_char, &last_char_counter);
 }
 
 void tokenizer(FILE *f, Lexer *lexer) {
   assert(f != NULL && lexer != NULL);
   raw_tokenizer(f, lexer);
   tokenizer_start(lexer);
+  for (int i = 0; i < lexer->tokens->len; i++) {
+    Token *t = (Token *)g_array_index(lexer->tokens, Token *, i);
+    printf("%s\n", t->c);
+  }
+  exit(0);
+  printf("\n");
+}
+
+char *get_token_at(Lexer *l, int index) {
+  assert(l != NULL && l->tokens != NULL);
+
+  Token *t = (Token *)g_array_index(l->tokens, Token *, index);
+  if (t == NULL) {
+    return NULL;
+  }
+  return t->c;
 }
 
 char *get_raw_token_at(Lexer *l, int index) {
   assert(l != NULL && l->raw_tokens != NULL);
-  Token *t = (Token *)g_list_nth_data(l->raw_tokens, index);
+
+  Token *t = (Token *)g_array_index(l->raw_tokens, Token *, index);
   if (t == NULL) {
     return NULL;
   }
@@ -145,35 +189,15 @@ char *get_raw_token_at(Lexer *l, int index) {
 }
 
 int get_token_at_cast(Lexer *l, int index) {
-  char *c = get_token_at(l, index);
-  if (c == NULL) {
+  char c = get_token_at(l, index);
+  if (!c) {
     return -1;
   }
-  return (int)*c;
+  return c;
 }
 
-char *get_token_at(Lexer *l, int index) {
-  assert(l != NULL && l->tokens != NULL);
-  Token *t = (Token *)g_list_nth_data(l->tokens, index);
-  if (t == NULL || t->c == NULL) {
-    return NULL;
-  }
-  return strndup(t->c, 1);
-}
-
-void free_lexer(Lexer *lexer) {
-  assert(lexer != NULL && lexer->tokens != NULL);
-  for (int i = 0; i < g_list_length(lexer->tokens); i++) {
-    Token *t = (Token *)g_list_nth_data(lexer->tokens, i);
-    if (t != NULL) {
-      free(t->c);
-      free(t);
-    }
-  }
-  g_list_free(lexer->tokens);
-}
-
-void tokenizer_consume(Lexer *lexer, char token) {
+void tokenizer_consume(Lexer *lexer, char *token) {
   assert(lexer != NULL);
-  lexer->tokens = g_list_append(lexer->tokens, new_token(token));
+  Token *t = new_token(token);
+  g_array_append_val(lexer->tokens, t);
 }

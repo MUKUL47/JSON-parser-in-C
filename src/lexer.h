@@ -12,10 +12,16 @@
 
 #define CURLY_OPEN     123 // {
 #define CURLY_CLOSE    125 // }
+#define BRACKET_CLOSE  41 // )
+#define BRACKET_OPEN    40 // (
 #define SQUARE_OPEN    91  // [
 #define SQUARE_CLOSE   93  // ]
+#define SEMI_COLON      59  // ;
 #define COMMA          44  // ,
 #define COLON          58  // :
+#define EQUAL_SIGN     61 // =
+#define GREATOR_THAN_SIGN     62 // >
+#define LESS_THAN_SIGN     60 // <
 
 #define ASTERISK       42  // *
 #define PLUS           43  // +
@@ -94,8 +100,8 @@ typedef struct{
 }Token;
 
 typedef struct{
-    GList *tokens;  
-    GList *raw_tokens; 
+    GArray *tokens;  
+    GArray *raw_tokens; 
     int counter;
 }Lexer;
 
@@ -111,5 +117,5 @@ void tokenizer_start(Lexer *l);
 void tokenizer_string(Lexer *l);
 void tokenizer_number(Lexer *l);
 void tokenizer_string(Lexer *l);
-void tokenizer_consume(Lexer *l, char token);
+void tokenizer_consume(Lexer *l, char *token);
 int get_token_at_cast(Lexer *l, int index);

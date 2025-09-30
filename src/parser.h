@@ -1,4 +1,5 @@
 
+#include "glib.h"
 #include "lexer.h"
 #include <stdio.h>
 #include <stdbool.h>
@@ -13,9 +14,70 @@ typedef enum{
     FLOAT
 }JSONType;
 
+typedef enum{
+    INT = 1,
+    CHAR,
+}ColumnType;
+
+typedef enum{
+    AND = 1,
+    OR,
+    EQUAL,
+    GREATOR,
+    LESS,
+}QueryDelimiter;
+
+typedef enum{
+    CREATE = 1,
+    DROP,
+    INSERT,
+    UPDATE,
+    DELETE,
+    SELECT,
+}QueryType;
+
+typedef struct{
+    ColumnType type;
+    void *value;
+}QueryValue;
+
+typedef struct{
+    QueryDelimiter *queryDelimiter;
+    struct QueryExpressionTree *left;//?
+    struct QueryExpressionTree *right;//?
+    ColumnType *queryValue;
+}QueryExpressionTree;
+
+typedef struct {
+    ColumnType *type;
+    char *column_name;
+    void *value;
+}UpdateTableArgument;
+
+typedef struct {
+    ColumnType *type;
+    char *column_name;
+}CreateTableArgument;
+
+typedef struct{
+    QueryType *queryType;
+    char* table_name;
+    QueryExpressionTree *where_claus;
+    GArray *createTableArgs;//CreateTableArgument[]
+    GArray *insertArgs;//QueryValue[]
+    GArray *updateTableArgs;//QueryValue[]
+}QueryBlob;
+
+typedef struct{
+    GArray *queryBlobs;
+    //TODO
+}QueryPlanner;
+
+
 typedef  struct{
     JSONType type;
     void *value;
+    QueryBlob *queryBlob;
 }JSON;
 
 typedef struct{
